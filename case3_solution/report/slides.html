@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Case 3: The Two Calendars - Slides</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, Segoe UI, sans-serif; background: #1a1a1a; }
+  .deck { width: 100%; height: 100vh; overflow: hidden; position: relative; }
+  .slide {
+    position: absolute; inset: 0; display: none; flex-direction: column;
+    justify-content: center; padding: 4rem 6rem; background: #fff; color: #1a1a1a;
+  }
+  .slide.active { display: flex; }
+  .slide h1 { font-size: 2.4rem; margin: 0 0 1rem; color: #111; }
+  .slide h2 { font-size: 1.8rem; margin: 0 0 1.5rem; color: #111; }
+  .slide p, .slide li { font-size: 1.15rem; line-height: 1.6; }
+  .slide .kicker { color: #888; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; }
+  .slide table { border-collapse: collapse; width: 100%; margin-top: 1rem; font-size: 1rem; }
+  .slide th, .slide td { border: 1px solid #ddd; padding: 0.5rem 0.75rem; text-align: left; }
+  .slide th { background: #f5f5f5; }
+  .badge { display: inline-block; padding: 0.3rem 0.9rem; border-radius: 999px; color: #fff; font-weight: bold; }
+  .nav { position: fixed; bottom: 1.5rem; right: 1.5rem; display: flex; gap: 0.5rem; z-index: 10; }
+  .nav button {
+    padding: 0.5rem 1rem; border: none; border-radius: 6px; background: #333; color: #fff;
+    cursor: pointer; font-size: 1rem;
+  }
+  .nav button:hover { background: #555; }
+  .counter { position: fixed; bottom: 1.8rem; left: 1.5rem; color: #aaa; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<div class="deck">
+<div class="slide">
+        <div class="kicker">Case 3</div>
+        <h1>The Two Calendars</h1>
+        <p>Does a TV-vs-digital calendar mismatch change a 15% budget reallocation call,
+        and can we trust the answer?</p>
+        </div><div class="slide">
+        <div class="kicker">The situation</div>
+        <h2>A data-backed recommendation, already acted on</h2>
+        <p>An MMM recommended moving 15% of TV spend into digital and email. The client
+        implemented it. Three weeks into the quarterly refresh, weekly totals stopped
+        lining up with the calendar &mdash; and Q3 results are due to the Brand Director
+        in 10 days, with this shift as the headline.</p>
+        </div><div class="slide">
+        <div class="kicker">The bug</div>
+        <h2>Two data sources, two calendars</h2>
+        <p>TV spend is reported on a <b>broadcast week</b> (Monday&ndash;Sunday, 4&ndash;5
+        week quarters). Digital, email, and sales are reported on <b>calendar months</b>.
+        Near every month boundary, TV spend can land in the wrong period relative to the
+        other channels &mdash; distorting which channel gets credit for a sale.</p>
+        </div><div class="slide">
+        <div class="kicker">Our approach</div>
+        <h2>Build the actual check, don't just diagnose it</h2>
+        <ul>
+          <li>Synthetic ~3-year dataset built on a real public MMM sample (Google Meridian),
+              with <b>known</b> true per-channel effects as ground truth</li>
+          <li>Two TV aggregations: naive (whole week into one month) vs. corrected
+              (spend split proportionally across the days it spans)</li>
+          <li>A Bayesian MMM (adstock + saturation, pymc-marketing) fit once per
+              aggregation, with credible intervals &mdash; not just point estimates</li>
+          <li>An LLM-backed check that reads vendor file specs and flags grain/calendar
+              mismatches automatically, every refresh</li>
+        </ul>
+        </div><div class="slide">
+        <div class="kicker">Results</div>
+        <h2>Channel contributions (period total)</h2>
+        <table><tr><th>Channel</th><th>Naive</th><th>Corrected</th><th>Ground truth</th></tr><tr><td>TV</td><td>6,312,398</td><td>6,272,893</td><td>16,280,000</td></tr><tr><td>Digital</td><td>11,007,316</td><td>11,445,364</td><td>10,360,000</td></tr><tr><td>Email</td><td>10,527,999</td><td>10,477,322</td><td>4,440,000</td></tr></table>
+        </div><div class="slide">
+        <div class="kicker">Verdict</div>
+        <h2><span class="badge" style="background:#c0392b">LOW CONFIDENCE</span></h2>
+        <p>The calendar bug does NOT meaningfully change the picture here: naive and corrected aggregation give statistically indistinguishable channel contributions and relative efficiency. The 15% TV-to-digital/email reallocation appears ROBUST to the calendar fix. HOWEVER: even the corrected fit's credible interval misses the known true contribution for TV - the calendar fix alone does NOT make this attribution trustworthy. Something else (likely channel collinearity given the limited months of data) is independently distorting the result, and that needs fixing before this recommendation should be presented as data-backed.</p>
+        </div><div class="slide">
+        <div class="kicker">Validation</div>
+        <h2>Vendor spec check (backend: GroqBackend)</h2>
+        <ul><li>TV / media spend vs. Digital / email spend: grain mismatch: weekly vs monthly</li><li>TV / media spend vs. Digital / email spend: calendar convention mismatch: unknown vs calendar_month</li><li>TV / media spend vs. Sales data: grain mismatch: weekly vs monthly</li><li>TV / media spend vs. Sales data: calendar convention mismatch: unknown vs calendar_month</li></ul>
+        <p>This check now runs automatically on every data refresh &mdash; the exact
+        mismatch that caused this case gets caught before it reaches a model again.</p>
+        </div><div class="slide">
+        <div class="kicker">Recommendation</div>
+        <h2>What we'd tell the Brand Director</h2>
+        <ul>
+          <li>Hold the 15% reallocation story until attribution uncertainty is addressed
+              &mdash; the calendar fix alone isn't enough to call this number solid</li>
+          <li>More months of data, or a model structure less sensitive to channel
+              collinearity, before re-presenting this as data-backed</li>
+          <li>The validation pipeline now runs on every refresh going forward</li>
+        </ul>
+        </div>
+</div>
+<div class="nav">
+  <button id="prev">&larr; Prev</button>
+  <button id="next">Next &rarr;</button>
+</div>
+<div class="counter" id="counter"></div>
+<script>
+  let current = 0;
+  const slides = document.querySelectorAll('.slide');
+  const counter = document.getElementById('counter');
+  function show(i) {
+    current = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach((s, idx) => s.classList.toggle('active', idx === current));
+    counter.textContent = (current + 1) + ' / ' + slides.length;
+  }
+  document.getElementById('prev').onclick = () => show(current - 1);
+  document.getElementById('next').onclick = () => show(current + 1);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ') show(current + 1);
+    if (e.key === 'ArrowLeft') show(current - 1);
+  });
+  show(0);
+</script>
+</body>
+</html>
